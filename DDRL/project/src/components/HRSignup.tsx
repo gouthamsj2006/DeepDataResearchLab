@@ -4,7 +4,7 @@ import { Eye, EyeOff, Building, MapPin, User, Mail, Lock, Briefcase } from 'luci
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 const companyTypes = [
   'Startup',

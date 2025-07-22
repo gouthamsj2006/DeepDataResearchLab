@@ -4,7 +4,7 @@ import { Eye, EyeOff, User, Mail, Lock, GraduationCap, Calendar } from 'lucide-r
 import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../lib/supabase';
 
 const degrees = [
   'B.Tech', 'M.Tech', 'B.Sc', 'M.Sc', 'BE', 'ME', 
