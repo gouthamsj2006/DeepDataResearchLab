@@ -8,6 +8,12 @@ const signUp = async (email: string, password: string, userData: any) => {
           role: userData.role,
         }
       }
+      options: {
+        data: {
+          full_name: userData.fullName,
+          role: userData.role,
+        }
+      }
     });
 
     if (error) throw error;
@@ -19,10 +25,9 @@ const signUp = async (email: string, password: string, userData: any) => {
         .insert({
           auth_user_id: data.user.id,
           full_name: userData.fullName,
-          phone_number: userData.phoneNumber,
           email: userData.email,
           role: userData.role,
-        });
+          role: userData.role,
 
       if (profileError) throw profileError;
     }

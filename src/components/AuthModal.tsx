@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { useAuth } from '../hooks/useAuth';
+import { supabase } from '../lib/supabase';
 
 const signUpSchema = yup.object({
   fullName: yup.string().required('Full name is required'),
@@ -33,7 +34,7 @@ export default function AuthModal({ isOpen, onClose, onHRLogin }: AuthModalProps
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
 
   const signUpForm = useForm({
     resolver: yupResolver(signUpSchema),
@@ -118,51 +119,19 @@ export default function AuthModal({ isOpen, onClose, onHRLogin }: AuthModalProps
 
       if (error) throw error;
 
-      // Check user role
-      if (authData.user?.user_metadata?.role === 'HR' && onHRLogin) {
-        onHRLogin();
+      // Check user role from profile
+      if (authData.user) {
+        const { data: profile } = await supabase
+          .from('user_profiles')
+          .select('role')
+          .eq('auth_user_id', authData.user.id)
+          .single();
+
+        if (profile?.role === 'HR' && onHRLogin) {
+          onHRLogin();
+        }
       }
       
-      onClose();
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during sign in');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSignUp = async (data: any) => {
-    setLoading(true);
-    setError('');
-    
-    try {
-      await signUp(data.email, data.password, {
-        fullName: data.fullName,
-        phoneNumber: data.phoneNumber,
-        email: data.email,
-        role: data.role,
-      });
-      
-      const toast = document.createElement('div');
-      toast.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
-      toast.textContent = '✅ Successfully registered!';
-      document.body.appendChild(toast);
-      setTimeout(() => document.body.removeChild(toast), 5000);
-      
-      onClose();
-    } catch (err: any) {
-      setError(err.message || 'An error occurred during sign up');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSignIn = async (data: any) => {
-    setLoading(true);
-    setError('');
-    
-    try {
-      await signIn(data.email, data.password);
       onClose();
     } catch (err: any) {
       setError(err.message || 'An error occurred during sign in');
@@ -175,57 +144,71 @@ export default function AuthModal({ isOpen, onClose, onHRLogin }: AuthModalProps
     setError('');
     signUpForm.reset();
     signInForm.reset();
+    setShowPassword(false);
+    setShowConfirmPassword(false);
     onClose();
   };
 
-  const hideScrollbarStyle = {
-    scrollbarWidth: 'none' as const,
-    msOverflowStyle: 'none' as const,
-    WebkitScrollbar: { display: 'none' },
+  const switchMode = () => {
+    setIsSignUp(!isSignUp);
+    setError('');
+    signUpForm.reset();
+    signInForm.reset();
+    setShowPassword(false);
+    setShowConfirmPassword(false);
   };
 
   return (
-    <AnimatePresence>
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
-          onClick={handleClose}
-        >
+    <>
+      <style>{`
+        .hide-scrollbar::-webkit-scrollbar {
+          display: none;
+        }
+      `}</style>
+
+      <AnimatePresence>
+        {isOpen && (
           <motion.div
-            initial={{ scale: 0.9, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0.9, opacity: 0 }}
-            className="w-[90vw] sm:w-[350px] max-h-[90vh] overflow-y-auto hide-scrollbar bg-white dark:bg-gray-800 rounded-xl shadow-md"
-            onClick={(e) => e.stopPropagation()}
-            style={hideScrollbarStyle}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            onClick={handleClose}
           >
-            {/* Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
-              <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-                {isSignUp ? 'Create Account' : 'Sign In'}
-              </h2>
-              <button
-                onClick={handleClose}
-                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+              className="w-[90vw] sm:w-[350px] max-h-[90vh] overflow-y-auto hide-scrollbar bg-white dark:bg-gray-800 rounded-xl shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                scrollbarWidth: 'none',
+                msOverflowStyle: 'none',
+              }}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+                  {isSignUp ? 'Create Account' : 'Sign In'}
+                </h2>
+                <button
+                  onClick={handleClose}
+                  className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
 
-            {/* Content */}
-            <div className="p-6">
-              {error && (
-                <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg">
-                  <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
-                </div>
-              )}
+              {/* Content */}
+              <div className="p-6">
+                {error && (
+                  <div className="mb-4 p-3 bg-red-100 dark:bg-red-900/20 border border-red-300 dark:border-red-700 rounded-lg">
+                    <p className="text-red-700 dark:text-red-400 text-sm">{error}</p>
+                  </div>
+                )}
 
-              {isSignUp ? (
-                <form onSubmit={signUpForm.handleSubmit(handleSignUp)} className="space-y-4">
-                  <div className="space-y-4">
+                {isSignUp ? (
+                  <form onSubmit={signUpForm.handleSubmit(handleSignUp)} className="space-y-4">
                     {/* Full Name */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -235,6 +218,7 @@ export default function AuthModal({ isOpen, onClose, onHRLogin }: AuthModalProps
                         {...signUpForm.register('fullName')}
                         type="text"
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        placeholder="Enter your full name"
                       />
                       {signUpForm.formState.errors.fullName && (
                         <p className="text-red-500 text-xs mt-1">{signUpForm.formState.errors.fullName.message}</p>
@@ -266,6 +250,7 @@ export default function AuthModal({ isOpen, onClose, onHRLogin }: AuthModalProps
                         {...signUpForm.register('email')}
                         type="email"
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        placeholder="Enter your email"
                       />
                       {signUpForm.formState.errors.email && (
                         <p className="text-red-500 text-xs mt-1">{signUpForm.formState.errors.email.message}</p>
@@ -274,32 +259,32 @@ export default function AuthModal({ isOpen, onClose, onHRLogin }: AuthModalProps
 
                     {/* Role Selection */}
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                         I am a
                       </label>
                       <div className="grid grid-cols-2 gap-3">
-                        <label className="relative">
+                        <label className="relative cursor-pointer">
                           <input
                             {...signUpForm.register('role')}
                             type="radio"
                             value="HR"
-                            className="sr-only"
+                            className="sr-only peer"
                           />
-                          <div className="flex items-center justify-center p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-500 transition-colors peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20">
+                          <div className="flex items-center justify-center p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 transition-colors peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20">
                             <div className="text-center">
                               <Briefcase className="w-6 h-6 mx-auto mb-2 text-blue-600" />
                               <span className="text-sm font-medium text-gray-900 dark:text-white">HR Professional</span>
                             </div>
                           </div>
                         </label>
-                        <label className="relative">
+                        <label className="relative cursor-pointer">
                           <input
                             {...signUpForm.register('role')}
                             type="radio"
                             value="Student"
-                            className="sr-only"
+                            className="sr-only peer"
                           />
-                          <div className="flex items-center justify-center p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg cursor-pointer hover:border-blue-500 transition-colors peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20">
+                          <div className="flex items-center justify-center p-4 border-2 border-gray-300 dark:border-gray-600 rounded-lg hover:border-blue-500 transition-colors peer-checked:border-blue-500 peer-checked:bg-blue-50 dark:peer-checked:bg-blue-900/20">
                             <div className="text-center">
                               <Users className="w-6 h-6 mx-auto mb-2 text-green-600" />
                               <span className="text-sm font-medium text-gray-900 dark:text-white">Student</span>
@@ -322,6 +307,7 @@ export default function AuthModal({ isOpen, onClose, onHRLogin }: AuthModalProps
                           {...signUpForm.register('password')}
                           type={showPassword ? 'text' : 'password'}
                           className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          placeholder="Create a password"
                         />
                         <button
                           type="button"
@@ -346,6 +332,7 @@ export default function AuthModal({ isOpen, onClose, onHRLogin }: AuthModalProps
                           {...signUpForm.register('confirmPassword')}
                           type={showConfirmPassword ? 'text' : 'password'}
                           className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          placeholder="Confirm your password"
                         />
                         <button
                           type="button"
@@ -359,19 +346,17 @@ export default function AuthModal({ isOpen, onClose, onHRLogin }: AuthModalProps
                         <p className="text-red-500 text-xs mt-1">{signUpForm.formState.errors.confirmPassword.message}</p>
                       )}
                     </div>
-                  </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-                  >
-                    {loading ? 'Creating Account...' : 'Create Account'}
-                  </button>
-                </form>
-              ) : (
-                <form onSubmit={signInForm.handleSubmit(handleSignIn)} className="space-y-4">
-                  <div className="space-y-4">
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                    >
+                      {loading ? 'Creating Account...' : 'Create Account'}
+                    </button>
+                  </form>
+                ) : (
+                  <form onSubmit={signInForm.handleSubmit(handleSignIn)} className="space-y-4">
                     {/* Email */}
                     <div>
                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
@@ -381,6 +366,7 @@ export default function AuthModal({ isOpen, onClose, onHRLogin }: AuthModalProps
                         {...signInForm.register('email')}
                         type="email"
                         className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        placeholder="Enter your email"
                       />
                       {signInForm.formState.errors.email && (
                         <p className="text-red-500 text-xs mt-1">{signInForm.formState.errors.email.message}</p>
@@ -397,6 +383,7 @@ export default function AuthModal({ isOpen, onClose, onHRLogin }: AuthModalProps
                           {...signInForm.register('password')}
                           type={showPassword ? 'text' : 'password'}
                           className="w-full px-3 py-2 pr-10 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          placeholder="Enter your password"
                         />
                         <button
                           type="button"
@@ -410,40 +397,35 @@ export default function AuthModal({ isOpen, onClose, onHRLogin }: AuthModalProps
                         <p className="text-red-500 text-xs mt-1">{signInForm.formState.errors.password.message}</p>
                       )}
                     </div>
-                  </div>
 
-                  <button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 px-4 rounded-lg transition-colors"
-                  >
-                    {loading ? 'Signing In...' : 'Sign In'}
-                  </button>
-                </form>
-              )}
+                    <button
+                      type="submit"
+                      disabled={loading}
+                      className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                    >
+                      {loading ? 'Signing In...' : 'Sign In'}
+                    </button>
+                  </form>
+                )}
 
-              {/* Toggle between Sign In and Sign Up */}
-              <div className="mt-6 text-center">
-                <p className="text-sm text-gray-600 dark:text-gray-400">
-                  {isSignUp ? 'Already have an account?' : "Don't have an account?"}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsSignUp(!isSignUp);
-                      setError('');
-                      signUpForm.reset();
-                      signInForm.reset();
-                    }}
-                    className="ml-1 text-blue-600 hover:text-blue-700 font-medium"
-                  >
-                    {isSignUp ? 'Sign In' : 'Sign Up'}
-                  </button>
-                </p>
+                {/* Toggle between Sign In and Sign Up */}
+                <div className="mt-6 text-center">
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {isSignUp ? 'Already have an account?' : "Don't have an account?"}
+                    <button
+                      type="button"
+                      onClick={switchMode}
+                      className="ml-1 text-blue-600 hover:text-blue-700 font-medium"
+                    >
+                      {isSignUp ? 'Sign In' : 'Sign Up'}
+                    </button>
+                  </p>
+                </div>
               </div>
-            </div>
+            </motion.div>
           </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
