@@ -12,6 +12,7 @@
 +import { Navigate } from 'react-router-dom';
 
  function App() {
+ }
 @@ .. @@
          <div className={`min-h-screen ${isDark ? 'dark' : ''}`}>
            <Routes>
@@ -20,3 +21,4 @@
              <Route path="/" element={
                <div className="bg-white dark:bg-gray-900 transition-colors duration-300">
                  <Header onNavigate={handleNavigate} />
+           }
